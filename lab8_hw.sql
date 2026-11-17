@@ -1,10 +1,5 @@
--- ============================================================================
--- LABORATORY WORK 8: SQL INDEXES (КОД ЖӘНЕ ЖАУАПТАР БІРГЕ)
--- ============================================================================
-
--- ----------------------------------------------------------------------------
+-- L.ABORATORY WORK 8: SQL INDEXES
 -- PART 1: Database Setup
--- ----------------------------------------------------------------------------
 DROP TABLE IF EXISTS projects, employees, departments CASCADE;
 
 CREATE TABLE departments (
@@ -46,10 +41,7 @@ INSERT INTO projects VALUES
 (202, 'Database Migration', 120000, 101),
 (203, 'HR System Upgrade', 50000, 102);
 
-
--- ----------------------------------------------------------------------------
 -- PART 2: Creating Basic Indexes
--- ----------------------------------------------------------------------------
 -- Exercise 2.1: Simple B-tree Index
 CREATE INDEX emp_salary_idx ON employees(salary);
 
@@ -58,9 +50,8 @@ FROM pg_indexes
 WHERE tablename = 'employees';
 
 /* ANSWER 2.1:
-employees кестесінде 2 индекс бар:
-1. employees_pkey (PRIMARY KEY автоматты түрде жасайды)
-2. emp_salary_idx (біз қолмен құрған индекс)
+There are two indexes on the employees table: one automatic index created for the primary key (emp_id)
+   and one custom index created on the salary column (emp_salary_idx)
 */
 
 -- Exercise 2.2: Index on Foreign Key
@@ -69,9 +60,7 @@ CREATE INDEX emp_dept_idx ON employees(dept_id);
 SELECT * FROM employees WHERE dept_id = 101;
 
 /* ANSWER 2.2:
-PostgreSQL Foreign Key бағандарына автоматты түрде индекс жасамайды.
-Оған индекс қою JOIN операцияларын айтарлықтай жылдамдатады және
-негізгі кестеден (departments) дерек өшіргенде/өзгерткенде бүкіл кестені сканерлеудің алдын алады.
+It makes join operations and searches between related tables much faster.
 */
 
 -- Exercise 2.3: View Index Information
@@ -81,16 +70,11 @@ WHERE schemaname = 'public'
 ORDER BY tablename, indexname;
 
 /* ANSWER 2.3:
-Барлық индекстер:
-- departments: departments_pkey (автоматты)
-- employees: employees_pkey (автоматты), emp_dept_idx, emp_salary_idx
-- projects: projects_pkey (автоматты)
+The indexes for primary keys (like departments_pkey, employees_pkey,
+   and projects_pkey) were created automatically by PostgreSQL.
 */
 
-
--- ----------------------------------------------------------------------------
 -- PART 3: Multicolumn Indexes
--- ----------------------------------------------------------------------------
 -- Exercise 3.1
 CREATE INDEX emp_dept_salary_idx ON employees(dept_id, salary);
 
@@ -99,8 +83,8 @@ FROM employees
 WHERE dept_id = 101 AND salary > 52000;
 
 /* ANSWER 3.1:
-Жоқ, тиімсіз. Көп бағанды B-tree индексі бірінші тұрған баған (dept_id) бойынша сұрыпталады.
-Сондықтан тек salary бойынша іздегенде PostgreSQL индексті қолдана алмай, кестені толық оқиды (Seq Scan).
+No, because in a multicolumn index, PostgreSQL uses the columns from left to right.
+   If the first column (dept_id) is missing in the WHERE clause, the index cannot be used effectively.
 */
 
 -- Exercise 3.2
@@ -110,15 +94,10 @@ SELECT * FROM employees WHERE dept_id = 102 AND salary > 50000;
 SELECT * FROM employees WHERE salary > 50000 AND dept_id = 102;
 
 /* ANSWER 3.2:
-Иә, индекс ішіндегі бағандар реті маңызды. (A, B) индексі тек A бойынша немесе A + B бірге
-іздегенде жұмыс істейді, бірақ тек B бойынша іздегенде тиімсіз. Әдетте теңдік (=) шарты бар
-баған бірінші, ал аралық (>, <) шарты бар баған екінші қойылады.
+   Yes, the order matters. The index works best when you filter by the first column or both columns together from left to right
 */
 
-
--- ----------------------------------------------------------------------------
 -- PART 4: Unique Indexes
--- ----------------------------------------------------------------------------
 -- Exercise 4.1
 ALTER TABLE employees ADD COLUMN email VARCHAR(100);
 UPDATE employees SET email = 'john.smith@company.com' WHERE emp_id = 1;
@@ -129,13 +108,10 @@ UPDATE employees SET email = 'tom.brown@company.com' WHERE emp_id = 5;
 
 CREATE UNIQUE INDEX emp_email_unique_idx ON employees(email);
 
--- Төмендегі жол әдейі қате береді (тексеру үшін комментарийді алып тастаңыз):
 -- INSERT INTO employees (emp_id, emp_name, dept_id, salary, email) VALUES (6, 'New Employee', 101, 55000, 'john.smith@company.com');
 
 /* ANSWER 4.1:
-Қате хабарламасы:
-ERROR: duplicate key value violates unique constraint "emp_email_unique_idx"
-DETAIL: Key (email)=(john.smith@company.com) already exists.
+We received a unique violation error because the email address already exists in the table.
 */
 
 -- Exercise 4.2: Unique Index vs UNIQUE Constraint
@@ -146,13 +122,10 @@ FROM pg_indexes
 WHERE tablename = 'employees' AND indexname LIKE '%phone%';
 
 /* ANSWER 4.2:
-Иә, PostgreSQL автоматты түрде employees_phone_key атты B-tree unique индексін құрды.
+Yes, PostgreSQL automatically created a B-tree unique index for the unique constraint
 */
 
-
--- ----------------------------------------------------------------------------
 -- PART 5: Indexes and Sorting
--- ----------------------------------------------------------------------------
 -- Exercise 5.1
 CREATE INDEX emp_salary_desc_idx ON employees(salary DESC);
 
@@ -161,8 +134,7 @@ FROM employees
 ORDER BY salary DESC;
 
 /* ANSWER 5.1:
-Индекс деректерді алдын ала кему ретімен (DESC) сұрыптап сақтайтындықтан,
-PostgreSQL қосымша сұрыптау (Sort) операциясын жасамай-ақ деректерді бірден оқиды.
+The index stores the data already sorted in descending order, so the database does not need to sort it manually during the query.
 */
 
 -- Exercise 5.2
@@ -172,18 +144,14 @@ SELECT proj_name, budget
 FROM projects
 ORDER BY budget NULLS FIRST;
 
-
--- ----------------------------------------------------------------------------
 -- PART 6: Indexes on Expressions
--- ----------------------------------------------------------------------------
 -- Exercise 6.1
 CREATE INDEX emp_name_lower_idx ON employees (LOWER(emp_name));
 
 SELECT * FROM employees WHERE LOWER(emp_name) = 'john smith';
 
 /* ANSWER 6.1:
-Бұл индекс болмаса, PostgreSQL кестедегі әрбір жолға LOWER() функциясын жеке-жеке қолданып,
-бүкіл кестені бастан-аяқ оқып шығар еді (Sequential Scan).
+PostgreSQL would use a sequential scan, checking every row one by one and converting each name to lowercase.
 */
 
 -- Exercise 6.2
@@ -201,9 +169,7 @@ FROM employees
 WHERE EXTRACT(YEAR FROM hire_date) = 2020;
 
 
--- ----------------------------------------------------------------------------
 -- PART 7: Managing Indexes
--- ----------------------------------------------------------------------------
 -- Exercise 7.1: Rename
 ALTER INDEX emp_salary_idx RENAME TO employees_salary_index;
 SELECT indexname FROM pg_indexes WHERE tablename = 'employees';
@@ -212,17 +178,13 @@ SELECT indexname FROM pg_indexes WHERE tablename = 'employees';
 DROP INDEX emp_salary_dept_idx;
 
 /* ANSWER 7.2:
-Қолданылмайтын немесе қайталанатын индекстерді өшіру керек, себебі олар дискіден орын алады
-және дерек қосқанда, өзгерткенде, өшіргенде (INSERT, UPDATE, DELETE) жүйені баяулатады.
+To save disk space and improve the speed of write operations (INSERT, UPDATE, DELETE), because unused indexes slow them down.
 */
 
 -- Exercise 7.3: Reindex
 REINDEX INDEX employees_salary_index;
 
-
--- ----------------------------------------------------------------------------
 -- PART 8: Practical Scenarios
--- ----------------------------------------------------------------------------
 -- Exercise 8.1: Optimize a Slow Query
 CREATE INDEX emp_salary_filter_idx ON employees(salary) WHERE salary > 50000;
 
@@ -240,31 +202,23 @@ FROM projects
 WHERE budget > 80000;
 
 /* ANSWER 8.2:
-Partial (ішінара) индекс тек WHERE шартына сәйкес келетін жолдарды ғана сақтайды.
-Толық индекспен салыстырғанда көлемі әлдеқайда кіші, жедел жадта (RAM) тез жұмыс істейді
-және шартқа кірмейтін жолдар өзгергенде жазу жылдамдығын баяулатпайды.
+A partial index is smaller and faster because it only indexes a specific subset of rows (e.g., where budget > 80000) instead of the whole table.
 */
 
 -- Exercise 8.3: Analyze Index Usage
 EXPLAIN SELECT * FROM employees WHERE salary > 52000;
 
 /* ANSWER 8.3:
-Нәтижеде "Seq Scan" (Sequential Scan) шығады. Себебі кестеде небәрі 5 жол бар,
-PostgreSQL оптимизаторы кішкентай кестені толық оқу индекс арқылы іздеуден жылдамырақ
-екенін анықтайды.
+It shows an "Index Scan", which tells us that the database successfully used the index to find the data faster instead of reading the whole table.
 */
 
-
--- ----------------------------------------------------------------------------
 -- PART 9: Index Types Comparison
--- ----------------------------------------------------------------------------
 -- Exercise 9.1: Hash Index
 CREATE INDEX dept_name_hash_idx ON departments USING HASH (dept_name);
 SELECT * FROM departments WHERE dept_name = 'IT';
 
 /* ANSWER 9.1:
-HASH индексін тек қатаң теңдік (=) арқылы іздеу кезінде қолдану керек.
-Ол аралық іздеу (>, <, BETWEEN), сұрыптау (ORDER BY) немесе LIKE үшін жарамайды.
+You should use a HASH index only when you need fast simple equality comparisons (=), but not for range queries (like >, <, or BETWEEN).
 */
 
 -- Exercise 9.2: B-tree vs Hash
@@ -274,10 +228,7 @@ CREATE INDEX proj_name_hash_idx ON projects USING HASH (proj_name);
 SELECT * FROM projects WHERE proj_name = 'Website Redesign';
 SELECT * FROM projects WHERE proj_name > 'Database';
 
-
--- ----------------------------------------------------------------------------
 -- PART 10: Cleanup and Best Practices
--- ----------------------------------------------------------------------------
 -- Exercise 10.1: Review All Indexes
 SELECT
     schemaname,
@@ -289,9 +240,7 @@ WHERE schemaname = 'public'
 ORDER BY tablename, indexname;
 
 /* ANSWER 10.1:
-Кішкентай кестелерде Hash индекстері (16 kB) бастапқы беттерді көбірек алатындықтан
-ең үлкен болып көрінеді (B-tree индекстері 8192 bytes / 8 kB). Үлкен кестелерде
-мәтіндік бағандардың индекстері ең үлкен болады.
+The index on primary keys or text columns with the most data is usually the largest because it stores more keys and references.
 */
 
 -- Exercise 10.2: Drop Unnecessary Indexes
@@ -311,36 +260,16 @@ WHERE schemaname = 'public'
 
 SELECT * FROM index_documentation;
 
-
--- ----------------------------------------------------------------------------
 -- SUMMARY QUESTIONS (ҚОРЫТЫНДЫ СҰРАҚТАРДЫҢ ЖАУАПТАРЫ)
--- ----------------------------------------------------------------------------
 /*
-1. What is the default index type in PostgreSQL?
-   -> B-tree.
-
-2. Name three scenarios where you should create an index:
-   -> Үлкен кестелерде WHERE шартында жиі қолданылатын бағандарға;
-   -> JOIN жасалатын Foreign Key бағандарына;
-   -> ORDER BY немесе GROUP BY жиі қолданылатын бағандарға.
-
-3. Name two scenarios where you should NOT create an index:
-   -> Өте кішкентай кестелерге (Seq Scan жылдамырақ);
-   -> Жазу (INSERT/UPDATE/DELETE) өте көп, ал оқу (SELECT) сирек болатын кестелерге.
-
-4. What happens to indexes when you INSERT, UPDATE, or DELETE data?
-   -> PostgreSQL негізгі кестемен бірге оған байланған барлық индекстерді де жаңартады,
-      бұл қосымша ресурс алып, жазу жылдамдығын баяулатады.
-
-5. How can you check if a query is using an index?
-   -> Сұраныстың алдына EXPLAIN немесе EXPLAIN ANALYZE жазу арқылы (жоспарда Index Scan,
-      Index Only Scan немесе Bitmap Index Scan көрінуі керек).
+What is the default index type in PostgreSQL?B-tree.
+Name three scenarios where you should create an index:For columns frequently used in WHERE clauses, JOIN conditions, and ORDER BY clauses.
+Name two scenarios where you should NOT create an index:On small tables, or on columns that are updated very frequently with few read queries.
+What happens to indexes when you INSERT, UPDATE, or DELETE data?The indexes must also be updated, which adds a small overhead and slows down write operations.
+How can you check if a query is using an index?By using the EXPLAIN command before the query.
 */
 
-
--- ----------------------------------------------------------------------------
--- ADDITIONAL CHALLENGES (OPTIONAL)
--- ----------------------------------------------------------------------------
+-- ADDITIONAL CHALLENGES (OPTIONAL)-
 -- 1. Ай бойынша іздеу индексі
 CREATE INDEX emp_hire_month_idx ON employees(EXTRACT(MONTH FROM hire_date));
 
